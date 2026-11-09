@@ -43,6 +43,30 @@ class MakePdfTests(unittest.TestCase):
                 widths = [float(page.MediaBox[2]) for page in pdf.pages]
             self.assertEqual(widths, [6.5, 6.0])
 
+    def test_cover_is_first_page_and_is_not_split(self):
+        with tempfile.TemporaryDirectory() as root:
+            folder = Path(root) / "images"
+            folder.mkdir()
+            self.save_png(folder, 1, 25)
+            cover = Path(root) / "cover.png"
+            with Image.new("RGB", (12, 20), "white") as image:
+                image.save(cover)
+            output = Path(root) / "with_cover.pdf"
+
+            pages, _ = make_pdf.create_pdf(
+                folder, output, mode="small", split=True,
+                split_order="right-left", cover=cover,
+            )
+
+            self.assertEqual(pages, 3)
+            with pikepdf.Pdf.open(output) as pdf:
+                sizes = [
+                    (float(page.MediaBox[2]), float(page.MediaBox[3]))
+                    for page in pdf.pages
+                ]
+            self.assertEqual(sizes, [(6.0, 10.0), (6.5, 5.0), (6.0, 5.0)])
+            self.assertTrue(cover.exists())
+
     def test_existing_pdf_is_never_overwritten(self):
         with tempfile.TemporaryDirectory() as root:
             folder = Path(root) / "images"

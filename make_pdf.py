@@ -94,14 +94,25 @@ def prepared_images(
 
 def create_pdf(
     input_dir: Path, output: Path, mode: str = "quality", split: bool = False,
-    split_order: str = "left-right"
+    split_order: str = "left-right", cover: Path | None = None
 ) -> tuple[int, int]:
     input_dir = input_dir.expanduser().resolve()
     output = output.expanduser().resolve()
     sources = numbered_images(input_dir)
+    if cover is not None:
+        cover = cover.expanduser().resolve()
+        if not cover.is_file():
+            raise ValueError(f"表紙画像が見つかりません: {cover}")
+        if cover in sources:
+            raise ValueError("表紙画像には連番画像とは別のファイルを指定してください")
+        with Image.open(cover) as image:
+            if image.format not in ("PNG", "JPEG"):
+                raise ValueError("表紙画像は PNG または JPEG にしてください")
+            image.verify()
     if output.exists():
         raise FileExistsError(f"既存のPDFは上書きしません: {output}")
-    if len(sources) * (2 if split else 1) > CHUNK_SIZE and shutil.which("pdfunite") is None:
+    page_count = len(sources) * (2 if split else 1) + (cover is not None)
+    if page_count > CHUNK_SIZE and shutil.which("pdfunite") is None:
         raise RuntimeError("大量画像の結合には Poppler の pdfunite が必要です: brew install poppler")
     output.parent.mkdir(parents=True, exist_ok=True)
 
@@ -110,6 +121,11 @@ def create_pdf(
     with tempfile.TemporaryDirectory(prefix="shottr-pdf-", dir=TEMP_PDF_DIR) as temp_dir:
         workspace = Path(temp_dir)
         images = prepared_images(sources, workspace, mode, split, split_order)
+        if cover is not None:
+            cover_workspace = workspace / "cover"
+            cover_workspace.mkdir()
+            cover_image = prepared_images([cover], cover_workspace, mode, False, split_order)
+            images = cover_image + images
         try:
             fd, name = tempfile.mkstemp(
                 prefix=f".{output.stem}-", suffix=".tmp", dir=output.parent
@@ -153,6 +169,7 @@ def make_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="連番PNGを順番にPDFへ結合します。")
     parser.add_argument("input_dir", type=Path, help="page_0001.png などがある run フォルダ")
     parser.add_argument("--output", type=Path, help="PDF出力先。省略時は output/pdf 内")
+    parser.add_argument("--cover", type=Path, help="先頭に1ページ追加する表紙画像（PNG または JPEG）")
     parser.add_argument(
         "--mode", choices=("quality", "small"), default="quality",
         help="quality=画質優先、small=容量優先（JPEG品質82）"
@@ -168,13 +185,17 @@ def make_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = make_parser().parse_args(argv)
     input_dir = args.input_dir.expanduser().resolve()
-    suffix = "_split" if args.split else ""
+    suffix = ("_split" if args.split else "") + ("_cover" if args.cover else "")
     output = args.output or DEFAULT_PDF_DIR / f"{input_dir.name}_{args.mode}{suffix}.pdf"
     print(f"画像フォルダ: {input_dir}")
     print(f"PDF出力先: {output.expanduser().resolve()}")
     print(f"モード: {args.mode} / 左右分割: {'あり' if args.split else 'なし'}")
+    if args.cover:
+        print(f"表紙画像: {args.cover.expanduser().resolve()}")
     try:
-        pages, size = create_pdf(input_dir, output, args.mode, args.split, args.split_order)
+        pages, size = create_pdf(
+            input_dir, output, args.mode, args.split, args.split_order, cover=args.cover
+        )
     except KeyboardInterrupt:
         print("\n中止しました。元画像は残しています。", file=sys.stderr)
         return 130
