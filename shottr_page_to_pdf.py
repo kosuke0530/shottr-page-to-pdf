@@ -25,19 +25,19 @@ def main(argv: list[str] | None = None) -> int:
 
     command, *options = args
     if command == "check-capture":
-        from phase1 import main as phase1_main
+        from shottr_check import main as shottr_check_main
 
-        return phase1_main(["capture", *options])
+        return shottr_check_main(["capture", *options])
     if command == "check-advance":
-        from phase1 import main as phase1_main
+        from shottr_check import main as shottr_check_main
 
-        return phase1_main(["advance", *options])
+        return shottr_check_main(["advance", *options])
     if command == "capture":
-        from phase2 import main as capture_main
+        from capture_pages import main as capture_main
 
         return capture_main(options)
     if command == "pdf":
-        from phase4 import main as pdf_main
+        from make_pdf import main as pdf_main
 
         return pdf_main(options)
 

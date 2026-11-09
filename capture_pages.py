@@ -14,7 +14,7 @@ import time
 
 from PIL import Image
 
-from phase1 import AREA_URL, REPEAT_URL, countdown, load_pyautogui
+from shottr_check import AREA_URL, REPEAT_URL, countdown, load_pyautogui
 
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg"}
