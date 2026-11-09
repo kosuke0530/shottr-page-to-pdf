@@ -1,4 +1,4 @@
-"""Phase 2/3: capture ordered browser spreads with Shottr."""
+"""Capture ordered browser spreads with Shottr."""
 
 from __future__ import annotations
 
@@ -158,7 +158,7 @@ def run(args: argparse.Namespace) -> None:
             raise ValueError("矢印キー方式では --x / --y は使えません。")
         operation = f"{args.browser} に右矢印キーを送る"
 
-    print("\nPhase 2 の設定確認")
+    print("\n連続撮影の設定確認")
     print(f"  Shottr の保存先: {source_dir}")
     print("  ※このフォルダが Shottr の設定画面にある保存先と同じことを確認してください。")
     print(f"  連番画像の保存先: {output_root} 内の新しい run フォルダ")
@@ -210,7 +210,7 @@ def run(args: argparse.Namespace) -> None:
 
 
 def make_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Phase 2/3: 見開き画像を連続撮影します。初期値は3枚です。")
+    parser = argparse.ArgumentParser(description="見開き画像を連続撮影します。初期値は3枚です。")
     parser.add_argument("--shottr-dir", type=Path, help="Shottr の既定保存フォルダ。省略時はフォルダ選択")
     parser.add_argument(
         "--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR,

@@ -1,4 +1,4 @@
-"""Phase 1: Shottr capture and browser page advance, tested separately."""
+"""Test one Shottr capture or browser page advance before a longer run."""
 
 from __future__ import annotations
 
@@ -80,7 +80,7 @@ def advance(args: argparse.Namespace) -> None:
 
 def make_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Phase 1: Shottr 撮影とページ送りを個別に試します。"
+        description="Shottr 撮影とページ送りを個別に試します。"
     )
     commands = parser.add_subparsers(dest="command", required=True)
 

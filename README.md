@@ -1,140 +1,93 @@
-# macOS 資料撮影ツール — Phase 1～4
+# shottr-page-to-pdf
 
-Phase 1 は Shottr の範囲撮影とブラウザのページ送りを別々に確認します。Phase 2 は**3枚だけ**連続撮影し、連番 PNG として保存します。Phase 3 は枚数を指定できます。Phase 4 は画像をPDFにします。GUIはまだありません。保存・複製が許可された資料でのみ使ってください。サイトのアクセス制御やコピー制限を回避する機能はありません。
+macOS で Shottr の範囲撮影を繰り返し、ブラウザのページを GUI 操作で送り、連番 PNG からスクロールできる PDF を作るコマンドラインツールです。保存・複製を許可された資料だけに使ってください。アクセス制御やコピー制限を回避する機能はありません。
+
+現在は Phase 1～4（操作テスト、連続撮影、PDF 作成）まで実装しています。GUI は未実装です。
 
 ## 準備
 
-1. [Shottr](https://shottr.cc/) を `/Applications` にインストールして**起動した状態にします**。Shottr 1.8 以降が必要です。この Mac では 1.9.3 を確認しました。未起動のまま連続撮影を始めようとした場合は、撮影前にエラーを表示します。
-2. Shottr の **Settings** で、既定のスクリーンショット保存先を確認します。Shottr の `save` 操作はそのフォルダに自動保存します。Phase 1 では保存先やファイル名を Python から指定しません。
-3. **システム設定 → プライバシーとセキュリティ → 画面収録とシステムオーディオ**で Shottr に権限を与えます。ページ送りを試す際は、同じ設定画面の**アクセシビリティ**で、Python を実行する Terminal または使用中のターミナルアプリに権限を与えます。変更後、アプリの再起動が必要な場合があります。
-4. Python 3.13 を使う例です。利用可能な Python 3 でも構いません。**この作業フォルダでは仮想環境と依存ライブラリを導入済みです。** 新しい環境で始める場合や `requirements.txt` 更新後に、次を実行します。50ページを超えるPDFを作る場合は `brew install poppler` も必要です。このMacには導入済みです。
+- macOS、Python 3、[Shottr](https://shottr.cc/) 1.8 以降が必要です。Shottr を起動し、**Settings で保存先フォルダを確認**してください。
+- **システム設定 → プライバシーとセキュリティ**で、Shottr に「画面収録とシステムオーディオ」、使用するターミナルに「アクセシビリティ」の権限を与えてください。変更後はアプリの再起動が必要な場合があります。
+- 50 ページを超える PDF を作る場合は、`brew install poppler` で `pdfunite` を導入してください。
 
 ```bash
-cd /Users/kosuke0530/Documents/スクショ自動化
-python3.13 -m venv .venv
+git clone https://github.com/kosuke0530/shottr-page-to-pdf.git
+cd shottr-page-to-pdf
+python3 -m venv .venv
 .venv/bin/python -m pip install -r requirements.txt
 ```
 
-必要なPythonライブラリは PyAutoGUI、Pillow、img2pdf、pikepdf です。`capture` の通常モードは Shottr の公開 URL コマンドを使うため PyAutoGUI なしでも動きます。`advance` と `capture --shortcut` は PyAutoGUI が必要です。
+仮想環境とライブラリの導入は通常、最初の1回だけです。すでに `.venv` がある場合は作り直す必要はありません。
 
-## 1. 範囲撮影を確認
+## まず3枚撮影する
 
-撮影したいページをブラウザに表示してから実行します。Enter 後の5秒間でブラウザを前面に出し、Shottr の範囲選択画面で撮影範囲をドラッグします。
-
-```bash
-.venv/bin/python phase1.py capture
-```
-
-Shottr の既定保存先に新しい画像が1枚増え、資料の必要な部分が入っていることを確認してください。Shottr の保存名は自動生成され、既存ファイル名を指定して上書きする操作はしません。
-
-同じ範囲をもう1枚撮るテスト:
+ブラウザで撮影開始ページを開いてから、次を実行します。
 
 ```bash
-.venv/bin/python phase1.py capture --repeat
+.venv/bin/python shottr_page_to_pdf.py capture --focus-wait 2 --wait 4
 ```
 
-この2回目では範囲選択画面が出ず、前回の位置と大きさで撮影されることを確認します。ブラウザの位置・ウィンドウサイズ・ディスプレイ配置が変わると、撮影内容はずれる可能性があります。
+1. フォルダ選択画面で、**Shottr の Settings に表示される保存先と同じフォルダ**を選びます。ここは Shottr が自動保存する元画像の置き場です。
+2. ページ送りボタンの中央へマウスを置き、表示された設定を確認して Enter を押します。
+3. 5 秒以内にブラウザを前面に出し、Shottr の範囲選択画面で資料の範囲をドラッグします。初回の範囲選択は 60 秒以内に終えてください。
+4. 3 枚目の撮影が終わるまで、画面やマウスを操作せず待ちます。完了後、Finder で連番画像のフォルダを開きます。
 
-現在設定されている **⌘⇧2** 自体を確かめたい場合は、次を実行します。この方式では撮影後に Shottr 側で手動保存してください。
+画像は `captures/run_0001/page_0001.png` のように**撮影順に1から**保存されます。次の実行では `run_0002` を新規作成します。番号は資料に印刷されたページ番号ではありません。Shottr が保存した元画像も残ります。
+
+Shottr の保存先を毎回選びたくない場合は `--shottr-dir "/Shottrの保存先"` を指定できます。必ず Shottr の設定と一致させてください。`--output-dir "/連番画像の親フォルダ"` で連番画像の保存先を変更できます。
+
+## 枚数を指定して撮影する
+
+3枚の画像の範囲と順番を確認したら、撮影開始ページに戻して実行します。`--count` は撮影枚数で、ページ送りはその1回少ない回数です。例は264枚です。
 
 ```bash
-.venv/bin/python phase1.py capture --shortcut
+.venv/bin/python shottr_page_to_pdf.py capture --count 264 --focus-wait 2 --wait 4
 ```
 
-Shottr の「Repeat Area Screenshot」をキーでも操作したい場合は、**Shottr → Settings → Hotkeys** で Repeat Area Screenshot に空いているショートカットを設定できます。このツールの `--repeat` はその設定がなくても公開 URL コマンドで動きます。
+`--mode key` を付けるとクリックの代わりに右矢印キーで送ります。クリック位置を固定する場合は `--x 1200 --y 700` のように両方指定します。`--browser` で前面に出すブラウザ名、`--wait` でページ送り後の待機秒数を変更できます。全オプションは `capture --help` で確認できます。
 
-## 2. ページ送りを確認
+撮影中は **Ctrl+C** または PyAutoGUI のフェイルセーフ（主画面の四隅にマウスを移動）で停止できます。保存済み画像は残ります。直前と同じ画素の画像を撮った場合は次の撮影前に停止するので、クリック位置、ブラウザのフォーカス、待機時間を確認してください。停止した実行を自動で再開する機能はありません。
 
-右矢印ボタンをマウスで指定する場合:
+## PDF にする
+
+撮影完了後、実際に作られた `run_XXXX` フォルダを指定します。画像をファイル名の昇順で並べ、見開き画像1枚を PDF の1ページにします。
 
 ```bash
-.venv/bin/python phase1.py advance --mode click
+.venv/bin/python shottr_page_to_pdf.py pdf captures/run_0001
 ```
 
-最初の5秒間でマウスをボタンの中央に置きます。表示された座標を確認して Enter を押し、次の5秒間でブラウザを表示します。その後、その座標を1回クリックし、初期値の2秒待って終了します。ページが1枚だけ進むことを確認してください。
-
-座標を再利用する場合は `--x 1200 --y 700` のように両方指定できます。座標値は環境に合わせて入力してください。
-
-右矢印キーを使う場合:
+初期値は画質優先で、出力先は `output/pdf/run_0001_quality.pdf` です。容量優先、左右分割、出力先指定もできます。
 
 ```bash
-.venv/bin/python phase1.py advance --mode key --wait 2
+.venv/bin/python shottr_page_to_pdf.py pdf captures/run_0001 --mode small
+.venv/bin/python shottr_page_to_pdf.py pdf captures/run_0001 --split
+.venv/bin/python shottr_page_to_pdf.py pdf captures/run_0001 --split --split-order right-left
+.venv/bin/python shottr_page_to_pdf.py pdf captures/run_0001 --output output/pdf/my-document.pdf
 ```
 
-Enter 後の5秒間でブラウザをクリックしてフォーカスを移します。ブラウザ側が右矢印キーでページを進める場合だけ使えます。`--delay` で操作前、`--wait` でページ送り後の秒数を調整できます。
+容量優先モードは JPEG 品質82で一時画像を作ります。左右分割時は元画像1枚が PDF の2ページになり、初期値は左→右です。完成後にページ数とファイルサイズを表示します。PNG の番号に抜けがある場合は停止します。既存 PDF は上書きせず、元画像も削除しません。大量画像は50ページずつ作業用 PDF にして結合するため、出力と一時ファイル用のディスク容量が必要です。
 
-いずれも **Ctrl+C** で中止できます。PyAutoGUI のフェイルセーフを有効にしており、操作前にマウスを主画面の四隅に移すと操作を停止できます。
+## 操作を個別に試す（Phase 1）
 
-## Phase 2: 3枚の連続撮影
-
-Phase 1 で Shottr の保存先に画像ができたことを確認してから、Chrome で開始ページを開きます。先ほどの見開きビューアなら、ウィンドウの位置や大きさを撮影中に変えず、下部の「▶」ボタンでページを送ります。
+連続撮影の前に、Shottr の撮影とページ送りを別々に確認できます。
 
 ```bash
-cd /Users/kosuke0530/Documents/スクショ自動化
-.venv/bin/python phase2.py
+.venv/bin/python shottr_page_to_pdf.py check-capture
+.venv/bin/python shottr_page_to_pdf.py check-capture --repeat
+.venv/bin/python shottr_page_to_pdf.py check-advance --mode click
+.venv/bin/python shottr_page_to_pdf.py check-advance --mode key --wait 2
 ```
 
-1. 表示されるフォルダ選択画面で、**Shottr の設定画面に表示された保存先と同じフォルダ**を選びます。Phase 1 の画像が入ったフォルダです。違うフォルダを選ぶと、撮影してもプログラムが画像を見つけられず待機します。ここにある `SCR-...png` はShottrの元画像です。
-2. 最初の5秒間で、ブラウザ下部の「▶」ボタン中央にマウスを置きます。座標が表示されたら設定を確認して Enter を押します。
-3. 次の5秒間で Chrome を前面に出します。Shottr の範囲選択画面が出たら、左右の資料ページだけをドラッグして撮影します。初回の選択は60秒以内に終えてください。
-4. ここからは3枚目の撮影が終わるまで、ブラウザやマウスを操作せずに待ちます。自動でページ送りを2回行い、同じ範囲をさらに2枚撮影します。終了すると、連番画像の保存先（例: `スクショ自動化/captures/run_0001/`）をFinderで開こうとします。開けない場合は画面に表示された保存先をFinderの **⌘⇧G（フォルダへ移動）** に貼り付けてください。そこにある `page_0001.png` ～ `page_0003.png` の順序と内容を確認します。
+`check-capture` は最初の範囲選択、`--repeat` は Shottr の「Repeat Area Screenshot」を試します。Shottr の既定フォルダに元の名前で保存されます。現在の **⌘⇧2** ショートカットを試す場合は `check-capture --shortcut` を使用し、撮影後は Shottr で手動保存してください。Repeat Area Screenshot のキーを設定する場合は **Shottr → Settings → Hotkeys** を開きます。このツールの `--repeat` にキー設定は不要です。
 
-ページ送り前には Chrome を前面に出し、初期値で1秒待ってからボタンをクリックします。ページ送り後の待機は初期値2秒です。反応が遅い場合は `--focus-wait 2 --wait 4` のように増やせます。Shottr の保存先が分かっている場合は `--shottr-dir "/保存先フォルダ"`、実行別フォルダを作る親フォルダを変える場合は `--output-dir "/出力先フォルダ"` を指定できます。右矢印キーを試す場合は `--mode key` を付けます。どちらの方式でもページ送り前に `--browser` で指定したアプリを前面に出します。
+`check-advance --mode click` では、5 秒以内にマウスをページ送りボタンへ置いて座標を取得します。Enter 後、再び5秒以内にブラウザを前面に出します。右矢印キー方式は、ブラウザ側がそのキーに対応している場合だけ使えます。
 
-クリック方式では、ボタン上にカーソルが残って「次へ」などの表示が写り込むのを避けるため、クリック後にカーソルを少し上へ移動します。
+従来の `phase1.py`、`phase2.py`、`phase4.py` からの起動も引き続き使えます。`shottr_page_to_pdf.py` はこれらのコマンドを一か所から呼び出します。
 
-ファイル番号は**書籍に印刷されたページ番号ではなく撮影順**です。各 `run_XXXX` フォルダ内で `page_0001.png` から始まり、Phase 2 では `page_0003.png` までです。今回の実画面では、それぞれ書籍の2–3ページ、4–5ページ、6–7ページになっていました。将来のPDF化では同じ実行フォルダ内の画像をファイル名の昇順で並べ、見開き画像1枚をPDFの1ページにします。
-
-同じ画像が続く場合は、Chrome で対象のビューアを前面にしたうえで次を試してください。
+## テストと保存対象
 
 ```bash
-.venv/bin/python phase2.py --focus-wait 2 --wait 4
+.venv/bin/python -m unittest discover -s tests -q
 ```
 
-再実行のたびに `run_0001`、`run_0002` のように**新しいフォルダ**を `スクショ自動化/captures/` 内に作ります。以前の `captures/page_0001.png` や `run_0001` の画像はそのまま残り、Shottr の元画像も削除しません。途中で Ctrl+C を押すか、マウスを主画面の四隅に動かすと停止し、保存済み画像は残ります。同じ画素の画像が連続した場合は、その画像を残して**次の撮影前に停止**します。クリック位置、ブラウザのフォーカス、待機時間を確認してください。
-
-## Phase 3: 撮影枚数を指定
-
-3枚の実機確認ができたら、同じ `phase2.py` に `--count` を付けて撮影枚数を指定できます。最初は10枚程度で順序と範囲を確認してください。
-
-```bash
-.venv/bin/python phase2.py --count 10 --focus-wait 2 --wait 4
-```
-
-この例では新しい `run_XXXX` フォルダに `page_0001.png` ～ `page_0010.png` を保存し、ページ送りは9回です。100枚なら `--count 100`、300枚なら `--count 300` です。上限は9999枚です。どの実行でも最初の画像が `page_0001.png` になるため、全ページをひと続きのPDFにする場合は**表示したい最初の見開きから1回の実行で**撮影します。途中で止めた実行の自動再開・番号の引き継ぎはまだありません。
-
-撮影中はマウスを主画面の四隅に移すと停止を要求できます。Python は保存待ちやページ切り替え待ちの間も位置を確認します。Terminal を前面にして Ctrl+C でも停止できます。停止後の画像は残ります。
-
-## Phase 4: PDFを作る
-
-連番画像が入った `run_XXXX` フォルダを指定します。次のコマンドは見開き画像1枚をPDFの1ページとし、画像の縦横比と画質を維持します。PDFビューアでページを縦にスクロールして読めます。
-
-```bash
-.venv/bin/python phase4.py captures/run_0002
-```
-
-通常の出力先は `スクショ自動化/output/pdf/run_0002_quality.pdf` です。この例のPDFはすでに作成済みなので、同じコマンドを再実行すると上書き防止のエラーになります。別名で試す場合は `--output output/pdf/別名.pdf` を指定してください。実際に撮影した別の `run_XXXX` フォルダなら、その名前に応じたPDFを新規作成します。
-
-容量優先モードは、画像を1枚ずつJPEG品質82へ変換してから結合します。原本PNGは残ります。
-
-```bash
-.venv/bin/python phase4.py captures/run_0002 --mode small
-```
-
-見開きを左右で分けたい場合は `--split` を付けます。初期値は左→右の順です。右→左にしたい場合は `--split-order right-left` も付けます。分割時は元画像1枚がPDFの2ページになります。
-
-```bash
-.venv/bin/python phase4.py captures/run_0002 --split
-```
-
-PDF完成後、ページ数とファイルサイズを表示します。`page_0001.png` から番号が連続していない場合は停止します。既存PDFを上書きせず、元画像も削除しません。50ページを超える場合は50ページずつ作業用PDFを作り、Poppler の `pdfunite` で順番に結合します。作業用ファイルは完成後に消去します。大きなPDFでは、出力と作業用ファイルのための空きディスク容量も必要です。
-
-## 確認済みの範囲
-
-構文チェックと、画面を操作しない Phase 1～4 のテストを実施しました。実際の長時間連続撮影はまだ実行していません。撮影範囲とページ送りの成否は、権限設定、Shottr の保存先、対象ページの表示状態によって変わるため、上記の手順で画面を見ながら確認してください。Phase 4 は実画像3枚のPDF描画と、小さな合成画像500枚の結合を確認しました。
-
-```bash
-.venv/bin/python -m unittest discover -s tests -v
-```
-
-Phase 5 で簡単な GUI を追加します。
+Git に入れるのはプログラム、テスト、説明書です。`.venv/`、`captures/`、`output/`、`tmp/` は Git の管理対象から除外しています。撮影画像や作成した PDF をリポジトリへ公開しないようにしています。

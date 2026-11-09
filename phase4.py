@@ -1,4 +1,4 @@
-"""Phase 4: combine numbered screenshots into a scrollable PDF."""
+"""Combine numbered screenshots into a scrollable PDF."""
 
 from __future__ import annotations
 
@@ -150,7 +150,7 @@ def create_pdf(
 
 
 def make_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Phase 4: 連番PNGを順番にPDFへ結合します。")
+    parser = argparse.ArgumentParser(description="連番PNGを順番にPDFへ結合します。")
     parser.add_argument("input_dir", type=Path, help="page_0001.png などがある run フォルダ")
     parser.add_argument("--output", type=Path, help="PDF出力先。省略時は output/pdf 内")
     parser.add_argument(
